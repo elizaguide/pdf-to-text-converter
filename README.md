@@ -1,202 +1,168 @@
-# PDF to Text Converter 📄
+# PDF to Text Converter
 
-A simple, reliable Python tool for extracting clean text from PDF files. Handles multiple PDF formats, removes encoding artifacts, and produces readable output for analysis.
+A simple, reliable Python tool for converting PDF files to clean, readable text.
 
-## Features ✨
+## Features
 
-- **Clean Text Output**: Automatically removes encoding artifacts, control characters, and formatting issues
-- **Multi-Page Support**: Extracts text from all pages with page break markers
-- **Error Handling**: Graceful handling of corrupted PDFs, missing files, and edge cases
-- **Verbose Mode**: Optional progress messages for debugging
-- **Simple CLI**: Easy-to-use command-line interface
-- **No Dependencies**: Uses standard PyPDF2 library
+- ✅ Extracts text from PDF files with multiple pages
+- ✅ Cleans and formats output (removes encoding artifacts, excess whitespace)
+- ✅ Handles edge cases gracefully
+- ✅ Page breaks marked clearly in output
+- ✅ CLI interface for easy command-line usage
+- ✅ Verbose mode for debugging
+- ✅ Error handling and validation
 
 ## Installation
 
 ### Requirements
 - Python 3.7+
-- PyPDF2
+- pip
+
+### Setup
 
 ```bash
-pip install PyPDF2
-```
-
-### Quick Start
-
-```bash
-# Make the CLI executable
-chmod +x pdf-converter
-
-# Or run directly with Python
-python3 pdf_converter.py
+git clone https://github.com/vishen-lakhiani/pdf-to-text-converter.git
+cd pdf-to-text-converter
+pip install -r requirements.txt
 ```
 
 ## Usage
 
-### Basic Usage
+### Command Line
 
-Convert a PDF to text (creates `.txt` file with same name):
+**Basic usage (saves to `document.txt`):**
 ```bash
-./pdf-converter document.pdf
-# Creates: document.txt
+python pdf_converter.py document.pdf
 ```
 
-### Custom Output Path
-
-Specify where to save the text:
+**Specify output file:**
 ```bash
-./pdf-converter document.pdf output/extracted_text.txt
+python pdf_converter.py document.pdf output.txt
 ```
 
-### Verbose Mode
-
-See progress messages during extraction:
+**Verbose mode (shows progress):**
 ```bash
-./pdf-converter -v document.pdf
-./pdf-converter --verbose document.pdf output.txt
+python pdf_converter.py -v document.pdf
+python pdf_converter.py --verbose document.pdf
 ```
 
-### Python Module
+**Full example:**
+```bash
+python pdf_converter.py -v my_research.pdf cleaned_text.txt
+```
 
-Use as a Python module in your own code:
+### As a Python Module
 
 ```python
-from pdf_converter import PDFToTextConverter
+from pdf_converter import PDFConverter
 
 # Create converter
-converter = PDFToTextConverter(verbose=True)
+converter = PDFConverter(verbose=True)
 
-# Option 1: Save to file
-success, message = converter.convert_file('input.pdf', 'output.txt')
-print(message)
-
-# Option 2: Get text as string
-success, text = converter.convert_string('input.pdf')
+# Method 1: Get text content
+success, content = converter.convert('document.pdf')
 if success:
-    print(text)
+    print(content)
 else:
-    print(f"Error: {text}")
+    print(f"Error: {content}")
+
+# Method 2: Save to file
+success, message = converter.save_text('document.pdf', 'output.txt')
+print(message)
 ```
 
-## Examples
+## Output
 
-### Example 1: Simple Document Conversion
+The converter produces clean text with:
+- Encoding artifacts removed
+- Multiple spaces collapsed to single spaces
+- Excessive blank lines cleaned up
+- Page breaks marked with `--- PAGE BREAK ---`
+- Proper UTF-8 encoding
 
-```bash
-$ ./pdf-converter research.pdf
-[PDF Converter] Opening: research.pdf
-[PDF Converter] Found 12 pages
-[PDF Converter] Extracting page 1/12
-[PDF Converter] Extracting page 2/12
-...
-[PDF Converter] Cleaning text
-[PDF Converter] Extraction complete: 45623 characters
-✓ Converted: research.pdf → research.txt
+### Example
 ```
+[Page 1 content]
 
-### Example 2: Batch Processing
+--- PAGE BREAK ---
 
-```bash
-# Convert all PDFs in a directory
-for pdf in *.pdf; do
-    ./pdf-converter "$pdf" "output/${pdf%.pdf}.txt"
-done
+[Page 2 content]
 ```
-
-### Example 3: With Custom Output
-
-```bash
-./pdf-converter -v documents/analysis.pdf reports/analysis_text.txt
-```
-
-## Text Cleaning
-
-The converter automatically:
-
-1. **Removes Control Characters**: Strips null bytes and invisible characters
-2. **Fixes Line Breaks**: Handles hyphenation at line breaks
-3. **Normalizes Whitespace**: Converts multiple spaces to single spaces
-4. **Cleans Artifacts**: Removes encoding artifacts from OCR/scanning
-5. **Preserves Structure**: Maintains paragraph breaks and page separators
-
-### Output Format
-
-- Pages are separated by: `--- Page Break ---`
-- Paragraph breaks are preserved
-- Trailing whitespace is removed
-- Text is UTF-8 encoded
 
 ## Error Handling
 
-The converter gracefully handles:
-
+The tool handles common issues:
 - Missing files
-- Non-PDF files
-- Corrupted PDFs
-- Pages with no extractable text
-- File write permissions issues
+- Invalid PDF format
+- Corrupted pages (skipped with warning)
+- Encoding issues
+- File permission problems
 
-All errors are clearly reported with actionable messages.
+All errors are reported clearly with helpful messages.
+
+## Exit Codes
+
+- `0` = Success
+- `1` = Error (check message for details)
 
 ## Performance
 
-- Single-page PDF: ~100ms
-- 100-page PDF: ~1-2 seconds
-- Text cleaning: <50ms for typical documents
+Typical performance on standard PDFs:
+- Small documents (<10 pages): < 1 second
+- Medium documents (10-100 pages): 1-5 seconds
+- Large documents (100+ pages): 5-30 seconds
 
-## API Reference
+## Limitations
 
-### PDFToTextConverter
+- Scanned PDFs (images) won't extract text - use OCR for those
+- Complex layout PDFs may have reordered text
+- Some PDF-embedded fonts may cause encoding issues
 
-```python
-converter = PDFToTextConverter(verbose: bool = False)
+For scanned PDFs, consider using OCR tools like Tesseract or cloud solutions like Google Cloud Vision.
+
+## Development
+
+### Project Structure
+```
+pdf-to-text-converter/
+├── README.md              # This file
+├── requirements.txt       # Python dependencies
+├── pdf_converter.py       # Main converter module
+├── test_converter.py      # Test suite
+└── .gitignore            # Git ignore rules
 ```
 
-#### Methods
-
-**`extract_from_pdf(pdf_path: str) -> Tuple[str, bool]`**
-- Extracts text from PDF
-- Returns: (text_or_error, success_flag)
-
-**`convert_file(input_path: str, output_path: Optional[str] = None) -> Tuple[bool, str]`**
-- Converts PDF file to text file
-- Returns: (success, message)
-
-**`convert_string(pdf_path: str) -> Tuple[bool, str]`**
-- Converts PDF and returns text as string
-- Returns: (success, text_or_error)
-
-**`clean_text(text: str) -> str`**
-- Cleans raw extracted text
-- Returns: cleaned_text
-
-## Troubleshooting
-
-### PDFs with scanned images (no extractable text)
-
-This converter extracts **digital text** from PDFs. For scanned PDFs with images, you'll need OCR software like Tesseract:
-
+### Running Tests
 ```bash
-pip install pytesseract
-# Then use Tesseract directly or fork this project
+python test_converter.py
 ```
 
-### Special characters appearing as garbage
+### Contributing
 
-The converter handles most encoding issues, but severely corrupted PDFs may need manual review. Check the PDF in a viewer first.
-
-### Performance issues with large PDFs
-
-Large PDFs (1000+ pages) may take several seconds. This is normal. Run with `--verbose` to monitor progress.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
-MIT - Use freely in your projects
+MIT License - see LICENSE file for details
 
-## Contributing
+## Author
 
-Found a bug? Have a feature request? Create an issue or submit a pull request.
+Created for Vishen Lakhiani
+
+## Support
+
+For issues or feature requests, please create a GitHub issue with:
+- PDF file details (size, page count)
+- Error message
+- Steps to reproduce
+- Python version
 
 ---
 
-**Built for Vishen | 💜 Eliza**
+**Built with:** PyPDF2  
+**Last Updated:** April 2026  
+**Status:** Production Ready ✅

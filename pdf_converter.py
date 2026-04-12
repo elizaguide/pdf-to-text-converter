@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 PDF to Text Converter
-Simple, reliable tool for extracting text from PDF files with clean formatting.
-Handles multiple PDF formats and removes encoding artifacts.
+A simple, reliable tool for converting PDFs to readable text.
 """
 
 import sys
@@ -10,160 +9,139 @@ import os
 import re
 from pathlib import Path
 from typing import Optional, Tuple
-import PyPDF2
+
+try:
+    import PyPDF2
+except ImportError:
+    print("Error: PyPDF2 not found. Install with: pip install PyPDF2", file=sys.stderr)
+    sys.exit(1)
 
 
-class PDFToTextConverter:
+class PDFConverter:
     """Convert PDF files to clean, readable text."""
     
     def __init__(self, verbose: bool = False):
-        """
-        Initialize converter.
-        
-        Args:
-            verbose: Print progress messages
-        """
         self.verbose = verbose
     
-    def log(self, message: str) -> None:
-        """Print message if verbose mode enabled."""
-        if self.verbose:
-            print(f"[PDF Converter] {message}")
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean extracted text by removing encoding artifacts and formatting issues.
+        """
+        if not text:
+            return ""
+        
+        # Remove multiple spaces
+        text = re.sub(r' +', ' ', text)
+        
+        # Remove multiple newlines (keep max 2)
+        text = re.sub(r'\n\n\n+', '\n\n', text)
+        
+        # Remove trailing spaces on each line
+        lines = [line.rstrip() for line in text.split('\n')]
+        text = '\n'.join(lines)
+        
+        # Remove control characters and other encoding artifacts
+        text = ''.join(char if ord(char) >= 32 or char in '\n\t\r' else '' for char in text)
+        
+        # Fix common encoding issues
+        text = text.replace('\\x00', '')
+        text = text.replace('\x00', '')
+        
+        return text.strip()
     
-    def clean_text(self, text: str) -> str:
+    def convert(self, pdf_path: str) -> Tuple[bool, str]:
         """
-        Clean extracted text of encoding artifacts and formatting issues.
-        
-        Args:
-            text: Raw extracted text from PDF
-            
-        Returns:
-            Cleaned text
-        """
-        # Remove null bytes and other control characters
-        text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
-        
-        # Fix common OCR/encoding artifacts
-        text = re.sub(r'\n\s*\n[\s\n]+', '\n\n', text)  # Multiple blank lines → double newline
-        text = re.sub(r'(\w)-\n(\w)', r'\1\2', text)    # Hyphenation at line breaks
-        text = re.sub(r'\s+', ' ', text)                # Multiple spaces → single space
-        text = re.sub(r' +\n', '\n', text)              # Trailing spaces
-        
-        # Fix common OCR mistakes (basic patterns)
-        text = re.sub(r'\bi\b(?=[A-Z])', 'I', text)     # Lowercase i → I before capitals
-        text = re.sub(r'([a-z])\s+([a-z])\s+([a-z])', r'\1\2\3', text)  # Split words
-        
-        # Normalize whitespace at start/end
-        text = text.strip()
-        
-        return text
-    
-    def extract_from_pdf(self, pdf_path: str) -> Tuple[str, bool]:
-        """
-        Extract text from PDF file.
+        Convert PDF to text.
         
         Args:
             pdf_path: Path to PDF file
             
         Returns:
-            Tuple of (extracted_text, success_flag)
+            Tuple of (success: bool, content_or_error: str)
         """
+        pdf_file = Path(pdf_path)
+        
+        # Validate file
+        if not pdf_file.exists():
+            return False, f"Error: File not found: {pdf_path}"
+        
+        if not pdf_file.suffix.lower() == '.pdf':
+            return False, f"Error: Not a PDF file: {pdf_path}"
+        
         try:
-            pdf_path = Path(pdf_path)
+            if self.verbose:
+                print(f"Opening PDF: {pdf_path}")
             
-            if not pdf_path.exists():
-                return f"ERROR: File not found: {pdf_path}", False
-            
-            if not pdf_path.suffix.lower() == '.pdf':
-                return f"ERROR: File is not a PDF: {pdf_path}", False
-            
-            self.log(f"Opening: {pdf_path.name}")
-            
-            with open(pdf_path, 'rb') as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
+            with open(pdf_file, 'rb') as file:
+                reader = PyPDF2.PdfReader(file)
                 
-                num_pages = len(pdf_reader.pages)
-                self.log(f"Found {num_pages} pages")
+                # Get metadata
+                num_pages = len(reader.pages)
+                if self.verbose:
+                    print(f"PDF has {num_pages} pages")
                 
-                extracted_text = []
-                
-                for page_num, page in enumerate(pdf_reader.pages, 1):
-                    self.log(f"Extracting page {page_num}/{num_pages}")
-                    page_text = page.extract_text()
+                # Extract text from all pages
+                text_content = []
+                for page_num, page in enumerate(reader.pages, 1):
+                    if self.verbose:
+                        print(f"  Processing page {page_num}/{num_pages}...")
                     
-                    if page_text:
-                        extracted_text.append(page_text)
-                    else:
-                        self.log(f"Warning: Page {page_num} yielded no text")
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content.append(page_text)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"    Warning: Issue extracting page {page_num}: {e}")
+                        continue
                 
-                # Join all pages with page separators
-                full_text = '\n\n--- Page Break ---\n\n'.join(extracted_text)
+                if not text_content:
+                    return False, "Error: No text could be extracted from PDF"
+                
+                # Combine all pages
+                full_text = '\n\n--- PAGE BREAK ---\n\n'.join(text_content)
                 
                 # Clean the text
-                self.log("Cleaning text")
-                cleaned_text = self.clean_text(full_text)
+                cleaned_text = self._clean_text(full_text)
                 
-                self.log(f"Extraction complete: {len(cleaned_text)} characters")
-                return cleaned_text, True
-        
-        except PyPDF2.PdfReadError as e:
-            return f"ERROR: PDF reading error - {str(e)}", False
+                if self.verbose:
+                    print(f"Extracted {len(cleaned_text)} characters from {num_pages} pages")
+                
+                return True, cleaned_text
+                
+        except PyPDF2.errors.PdfReadError as e:
+            return False, f"Error: Invalid PDF file - {e}"
         except Exception as e:
-            return f"ERROR: {type(e).__name__} - {str(e)}", False
+            return False, f"Error: {type(e).__name__}: {e}"
     
-    def convert_file(
-        self, 
-        input_path: str, 
-        output_path: Optional[str] = None
-    ) -> Tuple[bool, str]:
+    def save_text(self, pdf_path: str, output_path: Optional[str] = None) -> Tuple[bool, str]:
         """
-        Convert PDF file to text file.
+        Convert PDF and save to text file.
         
         Args:
-            input_path: Path to input PDF
-            output_path: Path to output text file (optional, defaults to input.txt)
+            pdf_path: Path to PDF file
+            output_path: Path to save text (defaults to PDF filename with .txt extension)
             
         Returns:
-            Tuple of (success, message)
+            Tuple of (success: bool, message: str)
         """
-        input_path = Path(input_path)
+        success, content = self.convert(pdf_path)
+        
+        if not success:
+            return False, content
         
         # Determine output path
         if output_path is None:
-            output_path = input_path.with_suffix('.txt')
-        else:
-            output_path = Path(output_path)
+            pdf_file = Path(pdf_path)
+            output_path = str(pdf_file.with_suffix('.txt'))
         
-        # Extract text
-        text, success = self.extract_from_pdf(str(input_path))
-        
-        if not success:
-            return False, text
-        
-        # Write to file
         try:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(text)
+                f.write(content)
             
-            message = f"✓ Converted: {input_path.name} → {output_path.name}"
-            self.log(message)
-            return True, message
-        
+            return True, f"Success: Saved to {output_path}"
         except Exception as e:
-            return False, f"ERROR: Failed to write output - {str(e)}"
-    
-    def convert_string(self, pdf_path: str) -> Tuple[bool, str]:
-        """
-        Convert PDF and return text as string (not saved to file).
-        
-        Args:
-            pdf_path: Path to PDF file
-            
-        Returns:
-            Tuple of (success, text)
-        """
-        return self.extract_from_pdf(pdf_path)
+            return False, f"Error saving file: {e}"
 
 
 def main():
@@ -171,39 +149,28 @@ def main():
     if len(sys.argv) < 2:
         print("PDF to Text Converter")
         print("\nUsage:")
-        print("  pdf-converter <input.pdf>                    # Creates input.txt")
-        print("  pdf-converter <input.pdf> <output.txt>       # Custom output path")
-        print("  pdf-converter --help                         # Show this help")
+        print("  python pdf_converter.py <pdf_file> [output_file]")
         print("\nOptions:")
-        print("  -v, --verbose                               # Print progress messages")
+        print("  -v, --verbose    Show detailed progress")
         print("\nExamples:")
-        print("  pdf-converter document.pdf")
-        print("  pdf-converter document.pdf output/text.txt")
-        print("  pdf-converter -v document.pdf output.txt")
+        print("  python pdf_converter.py document.pdf")
+        print("  python pdf_converter.py document.pdf output.txt")
+        print("  python pdf_converter.py -v document.pdf")
         sys.exit(1)
     
     # Parse arguments
     verbose = '-v' in sys.argv or '--verbose' in sys.argv
     args = [arg for arg in sys.argv[1:] if arg not in ['-v', '--verbose']]
     
-    if '--help' in args or '-h' in args:
-        print("PDF to Text Converter - Command line tool for extracting text from PDFs")
-        print("\nUsage: pdf-converter [options] <input.pdf> [output.txt]")
-        print("\nOptions:")
-        print("  -v, --verbose    Show progress messages")
-        print("  --help          Show this help message")
-        sys.exit(0)
-    
     if len(args) < 1:
-        print("ERROR: No input file provided")
+        print("Error: PDF file required", file=sys.stderr)
         sys.exit(1)
     
-    input_file = args[0]
-    output_file = args[1] if len(args) > 1 else None
+    pdf_path = args[0]
+    output_path = args[1] if len(args) > 1 else None
     
-    # Run conversion
-    converter = PDFToTextConverter(verbose=verbose)
-    success, message = converter.convert_file(input_file, output_file)
+    converter = PDFConverter(verbose=verbose)
+    success, message = converter.save_text(pdf_path, output_path)
     
     print(message)
     sys.exit(0 if success else 1)
