@@ -1,168 +1,183 @@
 # PDF to Text Converter
 
-A simple, reliable Python tool for converting PDF files to clean, readable text.
+Simple, reliable tool for converting PDFs to readable text for analysis. Handles multiple PDF formats and edge cases with clean output formatting.
 
 ## Features
 
-- ✅ Extracts text from PDF files with multiple pages
-- ✅ Cleans and formats output (removes encoding artifacts, excess whitespace)
-- ✅ Handles edge cases gracefully
-- ✅ Page breaks marked clearly in output
-- ✅ CLI interface for easy command-line usage
-- ✅ Verbose mode for debugging
-- ✅ Error handling and validation
+✅ **Multiple extraction methods** - Uses pdfplumber for best formatting, falls back to PyPDF2 for tricky PDFs  
+✅ **Smart text cleaning** - Removes encoding artifacts, control characters, and formatting junk  
+✅ **Batch processing** - Convert multiple PDFs at once  
+✅ **Flexible output** - Save to file or print to stdout  
+✅ **Verbose logging** - Debug mode for troubleshooting edge cases  
+✅ **Handles edge cases** - Damaged PDFs, mixed encodings, OCR artifacts  
 
 ## Installation
 
-### Requirements
-- Python 3.7+
-- pip
-
-### Setup
-
+### Option 1: Direct Usage
 ```bash
-git clone https://github.com/vishen-lakhiani/pdf-to-text-converter.git
-cd pdf-to-text-converter
-pip install -r requirements.txt
+cd /Users/vishen/pdf-to-text-converter
+python pdf_converter.py your-file.pdf
+```
+
+### Option 2: Install as Command
+```bash
+cd /Users/vishen/pdf-to-text-converter
+chmod +x pdf_converter.py
+ln -s $(pwd)/pdf_converter.py /usr/local/bin/pdf2txt
+pdf2txt your-file.pdf
+```
+
+### Option 3: Use in Python
+```python
+from pdf_converter import PDFConverter
+
+converter = PDFConverter(verbose=True)
+text = converter.convert('input.pdf')
+print(text)
+
+# Or save to file
+converter.convert('input.pdf', output_path='output.txt')
 ```
 
 ## Usage
 
-### Command Line
-
-**Basic usage (saves to `document.txt`):**
+### Basic Conversion
 ```bash
-python pdf_converter.py document.pdf
+python pdf_converter.py input.pdf
+```
+Output is printed to stdout.
+
+### Save to File
+```bash
+python pdf_converter.py input.pdf -o output.txt
 ```
 
-**Specify output file:**
+### Multiple Files → Batch Processing
 ```bash
-python pdf_converter.py document.pdf output.txt
+python pdf_converter.py file1.pdf file2.pdf file3.pdf -o output/
+```
+Creates `output/file1.txt`, `output/file2.txt`, `output/file3.txt`
+
+### Glob Pattern Support
+```bash
+python pdf_converter.py "*.pdf" -o output/
+```
+Converts all PDFs in current directory to `output/`
+
+### Verbose Logging (Debugging)
+```bash
+python pdf_converter.py input.pdf -v
+```
+Shows detailed extraction steps and warnings.
+
+## How It Works
+
+1. **Extraction Phase**
+   - First tries `pdfplumber` for best-quality text extraction (preserves formatting)
+   - Falls back to `PyPDF2` if pdfplumber fails (more reliable for damaged PDFs)
+
+2. **Cleaning Phase**
+   - Removes UTF-8 encoding artifacts (BOM, null bytes, etc.)
+   - Fixes line spacing and excessive whitespace
+   - Removes control characters
+   - Normalizes paragraph breaks
+
+3. **Output Phase**
+   - Clean, readable text suitable for analysis and processing
+
+## Examples
+
+### Example 1: Analyze a Report
+```bash
+python pdf_converter.py 2024-Q4-Report.pdf -o report.txt
+cat report.txt | grep -i "revenue"
 ```
 
-**Verbose mode (shows progress):**
+### Example 2: Process Multiple Documents
 ```bash
-python pdf_converter.py -v document.pdf
-python pdf_converter.py --verbose document.pdf
+python pdf_converter.py Documents/*.pdf -o extracted/ -v
+# Check what was extracted
+ls -la extracted/
 ```
 
-**Full example:**
-```bash
-python pdf_converter.py -v my_research.pdf cleaned_text.txt
-```
-
-### As a Python Module
-
+### Example 3: Use Programmatically
 ```python
 from pdf_converter import PDFConverter
 
-# Create converter
-converter = PDFConverter(verbose=True)
-
-# Method 1: Get text content
-success, content = converter.convert('document.pdf')
-if success:
-    print(content)
-else:
-    print(f"Error: {content}")
-
-# Method 2: Save to file
-success, message = converter.save_text('document.pdf', 'output.txt')
-print(message)
+converter = PDFConverter()
+for pdf in ['contract.pdf', 'agreement.pdf']:
+    text = converter.convert(pdf)
+    # Process text
+    words = text.split()
+    print(f"{pdf}: {len(words)} words")
 ```
 
-## Output
+## Troubleshooting
 
-The converter produces clean text with:
-- Encoding artifacts removed
-- Multiple spaces collapsed to single spaces
-- Excessive blank lines cleaned up
-- Page breaks marked with `--- PAGE BREAK ---`
-- Proper UTF-8 encoding
+### PDF seems corrupt or extraction fails
+- Use verbose mode to see what's happening: `python pdf_converter.py input.pdf -v`
+- The tool automatically tries multiple extraction methods
+- If both fail, the PDF may be genuinely unreadable
 
-### Example
-```
-[Page 1 content]
+### Text looks garbled
+- This is usually encoding artifacts. The cleaning phase removes most of these
+- If text is still bad, the PDF might be scanned image-based (needs OCR, not supported yet)
 
---- PAGE BREAK ---
+### Performance is slow
+- Large PDFs take longer. This is normal.
+- pdfplumber is more thorough but slower; PyPDF2 is faster
 
-[Page 2 content]
-```
+## Dependencies
 
-## Error Handling
+- `PyPDF2` - Core PDF reading (required)
+- `pdfplumber` - Enhanced formatting extraction (optional, auto-installed)
 
-The tool handles common issues:
-- Missing files
-- Invalid PDF format
-- Corrupted pages (skipped with warning)
-- Encoding issues
-- File permission problems
+Both are installed automatically on first run.
 
-All errors are reported clearly with helpful messages.
+## Requirements
 
-## Exit Codes
-
-- `0` = Success
-- `1` = Error (check message for details)
-
-## Performance
-
-Typical performance on standard PDFs:
-- Small documents (<10 pages): < 1 second
-- Medium documents (10-100 pages): 1-5 seconds
-- Large documents (100+ pages): 5-30 seconds
-
-## Limitations
-
-- Scanned PDFs (images) won't extract text - use OCR for those
-- Complex layout PDFs may have reordered text
-- Some PDF-embedded fonts may cause encoding issues
-
-For scanned PDFs, consider using OCR tools like Tesseract or cloud solutions like Google Cloud Vision.
-
-## Development
-
-### Project Structure
-```
-pdf-to-text-converter/
-├── README.md              # This file
-├── requirements.txt       # Python dependencies
-├── pdf_converter.py       # Main converter module
-├── test_converter.py      # Test suite
-└── .gitignore            # Git ignore rules
-```
-
-### Running Tests
-```bash
-python test_converter.py
-```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+- Python 3.7+
+- pip (for auto-installation of dependencies)
 
 ## License
 
-MIT License - see LICENSE file for details
+Simple utility for Vishen's workflow. Use freely.
 
-## Author
+## Architecture Notes
 
-Created for Vishen Lakhiani
+### Why Two Extraction Methods?
 
-## Support
+- **pdfplumber**: Better for structured PDFs with tables and formatting
+- **PyPDF2**: More robust for damaged/malformed PDFs
 
-For issues or feature requests, please create a GitHub issue with:
-- PDF file details (size, page count)
-- Error message
-- Steps to reproduce
-- Python version
+The tool tries pdfplumber first (best results) and automatically falls back to PyPDF2 if needed.
+
+### Text Cleaning Strategy
+
+The cleaning phase addresses common PDF extraction issues:
+- UTF-8 BOM artifacts (`ï¿½`)
+- Null bytes and control characters
+- Excessive whitespace and irregular line breaks
+- OCR artifacts and encoding junk
+
+This results in clean text suitable for analysis, NLP processing, or search.
+
+### Batch Processing
+
+When processing multiple files:
+- Each PDF is processed independently
+- Errors in one file don't stop processing of others
+- Output directory is created automatically
+
+## Roadmap
+
+Possible future enhancements:
+- OCR support for image-based PDFs (tesseract)
+- Table extraction and formatting preservation
+- Confidence scoring for extraction quality
+- Metadata extraction (title, author, creation date)
+- Direct output to JSON/CSV formats
 
 ---
 
-**Built with:** PyPDF2  
-**Last Updated:** April 2026  
-**Status:** Production Ready ✅
+**Built for reliable PDF analysis. Simple. Effective. Trustworthy.**
