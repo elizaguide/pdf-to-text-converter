@@ -16,15 +16,18 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
 
 # IDE
 .vscode/
@@ -32,16 +35,19 @@ htmlcov/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Temporary files
-*.tmp
-temp/
-cache/
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Logs
 *.log
 
-# Test output
-output/
-extracted/
+# Test PDFs and outputs
+test_output/
 *.txt
-test_*.pdf
