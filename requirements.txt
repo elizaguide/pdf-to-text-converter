@@ -1,0 +1,10 @@
+# PDF Extraction Libraries
+PyPDF2>=3.0.0
+pdfplumber>=0.9.0
+
+# Optional: For OCR on scanned PDFs
+pdf2image>=1.16.0
+pytesseract>=0.3.10
+
+# Utilities
+click>=8.0.0
